@@ -12,14 +12,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 'Checkout codes'
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+        
       - name: 'Set python'
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: '3.13'
+          
       - name: 'Install dependencies'
         run: python -m pip install --upgrade requests
+        
       - name: 'Start Sign'
         env:
           BDUSS: ${{ secrets.BDUSS }}
         run: python main.py
+        
+      - name: 'Commit log & Push'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          echo "Last sign-in: $(date)" > last_sign_log.txt
+          git add last_sign_log.txt
+          git commit -m "Auto sign-in log update on $(date)"
+          git push
