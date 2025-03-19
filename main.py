@@ -52,18 +52,30 @@ KW = "kw"
 s = requests.Session()
 
 
-def get_tbs(bduss):
+def get_tbs(bduss, max_retries=3, timeout=6):
+    """获取tbs值，带重试机制"""
     logger.info("获取tbs开始")
     headers = copy.copy(HEADERS)
     headers.update({COOKIE: EMPTY_STR.join([BDUSS, EQUAL, bduss])})
-    try:
-        tbs = s.get(url=TBS_URL, headers=headers, timeout=5).json()[TBS]
-    except Exception as e:
-        logger.error("获取tbs出错" + e)
-        logger.info("重新获取tbs开始")
-        tbs = s.get(url=TBS_URL, headers=headers, timeout=5).json()[TBS]
-    logger.info("获取tbs结束")
-    return tbs
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = s.get(url=TBS_URL, headers=headers, timeout=timeout)
+            response.raise_for_status()  # 检查 HTTP 状态码
+            data = response.json()  # 解析 JSON
+            tbs = data.get(TBS)  # 避免 KeyError
+            if tbs:
+                logger.info("获取tbs成功: %s", tbs)
+                return tbs
+            else:
+                logger.warning("获取tbs失败，响应内容: %s", data)
+        except requests.exceptions.RequestException as e:
+            logger.error("请求异常（第 %d 次尝试）：%s", attempt, str(e), exc_info=True)
+        except ValueError as e:  # JSON 解析失败
+            logger.error("JSON解析错误: %s", str(e), exc_info=True)
+        time.sleep(2)  # 失败后等待 2 秒重试
+    logger.error("获取tbs失败，达到最大重试次数 (%d)", max_retries)
+    return None  # 返回 None 以便调用方处理失败情况
 
 
 def get_favorite(bduss):
