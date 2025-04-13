@@ -176,14 +176,37 @@ def encodeData(data):
     return data
 
 
-def client_sign(bduss, tbs, fid, kw):
-    # 客户端签到
+# def client_sign(bduss, tbs, fid, kw):
+#     # 客户端签到
+#     logger.info("开始签到贴吧：" + kw)
+#     data = copy.copy(SIGN_DATA)
+#     data.update({BDUSS: bduss, FID: fid, KW: kw, TBS: tbs, TIMESTAMP: str(int(time.time()))})
+#     data = encodeData(data)
+#     res = s.post(url=SIGN_URL, data=data, timeout=10).json()
+#     return res
+
+def client_sign(bduss, tbs, fid, kw, max_retries=3):
     logger.info("开始签到贴吧：" + kw)
     data = copy.copy(SIGN_DATA)
     data.update({BDUSS: bduss, FID: fid, KW: kw, TBS: tbs, TIMESTAMP: str(int(time.time()))})
     data = encodeData(data)
-    res = s.post(url=SIGN_URL, data=data, timeout=5).json()
-    return res
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            res = s.post(url=SIGN_URL, data=data, timeout=10).json()
+            if res.get("error_code") == "0":
+                logger.info(f"[{kw}] 签到成功")
+            else:
+                logger.warning(f"[{kw}] 签到失败：{res}")
+            return res
+        except requests.exceptions.ReadTimeout:
+            logger.warning(f"[{kw}] 请求超时，第 {attempt} 次重试中...")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"[{kw}] 请求异常：{str(e)}", exc_info=True)
+        time.sleep(2)  # 重试间隔
+
+    logger.error(f"[{kw}] 签到失败：超过最大重试次数")
+    return None
 
 # def send_email(sign_list):
 #     if ('HOST' not in ENV or 'FROM' not in ENV or 'TO' not in ENV or 'AUTH' not in ENV):
